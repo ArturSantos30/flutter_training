@@ -1,13 +1,13 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 
 void main() {
-  runApp(
-    MaterialApp(
-      home: Home()
+  runApp(MaterialApp(
+    home: Home(),
   ));
 }
 
@@ -26,24 +26,40 @@ class _HomeState extends State<Home> {
   int _lastRemovedPos;
 
   @override
-  void initState(){
+  void initState() {
     super.initState();
-    _readData().then( (data){
+    _readData().then( (data) {
       setState(() {
-        _toDoList = json.decode(data);       
-      });  
+        _toDoList = json.decode(data);
+      });
     });
   }
 
-  void _addToDo(){
+  void _addToDo() {
     setState(() {
-      Map<String, dynamic> newToDo = Map();
+      Map<String,dynamic> newToDo = Map();
       newToDo["title"] = _toDoController.text;
       _toDoController.text = "";
       newToDo["ok"] = false;
       _toDoList.add(newToDo);
-      _saveData();
+      _saveData();      
     });
+  }
+
+  Future<Null> _refresh() async {
+    await Future.delayed( Duration(seconds: 1));
+
+    setState(() {
+      _toDoList.sort( (a,b) {
+        if( a["ok"] && !b["ok"]) return 1;
+        else if(!a["ok"] && b["ok"]) return -1;
+        else return 0;
+      });
+
+      _saveData();      
+    });
+
+    return null;
   }
 
   @override
@@ -56,36 +72,38 @@ class _HomeState extends State<Home> {
       ),
       body: Column(
         children: <Widget>[
-          Container(
-            padding: EdgeInsets.fromLTRB(17.0, 1.8, 7.0, 1.0),
+          Container (
+            padding: EdgeInsets.fromLTRB(17.0, 1.0, 7.0, 1.0),
             child: Row(
               children: <Widget>[
                 Expanded(
                   child: TextField(
                     controller: _toDoController,
                     decoration: InputDecoration(
-                      labelText:"Nova Tarefa",
+                      labelText: "Nova Tarefa",
                       labelStyle: TextStyle(color: Colors.blueAccent)
                     ),
-                  ),
-                ),
+                )),
                 RaisedButton(
                   color: Colors.blueAccent,
                   child: Text("ADD"),
-                  textColor: Colors.white,
+                  textColor: Colors.white, 
                   onPressed: _addToDo,
-                )
-              ]
+                ),
+              ],
             ),
           ),
           Expanded(
-            child: ListView.builder(
-              padding: EdgeInsets.only(top: 10.0),
-              itemCount: _toDoList.length,
-              itemBuilder: buildItem
+            child: RefreshIndicator(
+              child: ListView.builder(
+                padding: EdgeInsets.only(top: 10.0),
+                itemCount: _toDoList.length,
+                itemBuilder: buildItem
+              ), 
+              onRefresh: _refresh
             )
-          )
-        ]
+          ),
+        ],
       ),
     );
   }
@@ -134,6 +152,7 @@ class _HomeState extends State<Home> {
             ),
             duration: Duration(seconds: 2),
           );
+          Scaffold.of(context).removeCurrentSnackBar();
           Scaffold.of(context).showSnackBar(snack);
         });
         
@@ -141,14 +160,13 @@ class _HomeState extends State<Home> {
     );
   }
 
-  Future<File> _getFile() async{
+  Future<File> _getFile() async {
     final directory = await getApplicationDocumentsDirectory();
     return File("${directory.path}/data.json");
   }
 
   Future<File> _saveData() async {
     String data = json.encode(_toDoList);
-
     final file = await _getFile();
     return file.writeAsString(data);
   }
@@ -161,4 +179,5 @@ class _HomeState extends State<Home> {
       return null;
     }
   }
+   
 }
